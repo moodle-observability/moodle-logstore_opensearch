@@ -3,34 +3,33 @@ moodle-logstore_opensearch
 
 **Log store do Moodle que grava os eventos no OpenSearch.**
 
-Log store (subplugin do ``tool_log``) que grava os eventos do Moodle no OpenSearch pelo ``tool_opensearch``, em dois modos independentes, cada um no seu data stream.
+Um log store (*Administração do site > Plugins > Registros*) que envia todo evento do Moodle ao OpenSearch, pelo ``tool_opensearch``, com exatamente as colunas do log padrão (``logstore_standard_log``). Os eventos são consultados e analisados no OpenSearch Dashboards ou no Grafana; os relatórios do Moodle continuam lendo o log padrão.
 
 .. note::
 
-   Fase de planejamento. Ainda não há versão publicada. Acompanhe o andamento nas `issues <https://github.com/moodle-observability/moodle-logstore_opensearch/issues>`_.
+   Versão 0.1.0 (alfa): modo ``standard``. O modo ``xapi`` vem numa versão seguinte. Acompanhe o andamento nas `issues <https://github.com/moodle-observability/moodle-logstore_opensearch/issues>`_.
 
-Funcionalidades previstas
--------------------------
+Funcionalidades
+---------------
 
-* Modo ``standard``: exatamente as colunas do ``logstore_standard_log`` (mesmos nomes, tipos e valores) mais ``@timestamp``, no data stream ``logstore``.
-* Modo ``xapi``: statements xAPI 1.0.3 no data stream ``xapi`` (o OpenSearch não é um LRS: sem Statement API).
-* Opções de privacidade: não gravar o endereço IP, pseudonimizar os ids de usuário (HMAC com sal cifrado), remover chaves de ``other``; exportação e exclusão pela Privacy API.
-* Filtros por nível educacional, CRUD, eventos excluídos e convidados.
-* Só escrita: os relatórios do Moodle continuam lendo o ``logstore_standard_log``; as consultas são feitas no OpenSearch Dashboards.
+* **Mesmas colunas do log padrão**: mesmos nomes, tipos e valores, mais ``@timestamp``, no data stream ``<prefixo>-logstore``. Consultas existentes se traduzem diretamente.
+* **Nenhum HTTP durante a página**: os eventos vão para a fila do ``tool_opensearch``, que os envia com ``_bulk``. OpenSearch fora do ar nunca deixa o Moodle lento.
+* **Filtros**: nível educacional, ações (CRUD), eventos excluídos, convidados.
+* **Privacidade**: endereço IP opcional, pseudônimos (hash com chave dos ids de usuário), chaves removidas de ``other``; exportação e exclusão dos dados de um usuário pela API de privacidade do Moodle.
+* **Painéis**: o ``tool_opensearch`` traz painéis para este data stream com os filtros do relatório de logs do Moodle.
 
 Requisitos
 ----------
 
 * Moodle 5.3 ou posterior.
-* Um cluster OpenSearch (2.x) com os plugins de segurança e ISM.
-* `tool_opensearch <https://moodle-observability.github.io/moodle-tool_opensearch/>`_.
+* ``tool_opensearch`` 0.1.2 ou posterior, configurado e conectado.
 
 Links
 -----
 
 * `Código-fonte <https://github.com/moodle-observability/moodle-logstore_opensearch>`_
 * `Issues <https://github.com/moodle-observability/moodle-logstore_opensearch/issues>`_
-* `Moodle Observability <https://moodle-observability.github.io/>`_
+* `tool_opensearch <https://moodle-observability.github.io/moodle-tool_opensearch/>`_
 
 .. toctree::
    :hidden:
@@ -38,4 +37,5 @@ Links
 
    installation
    configuration
-   usage
+   modes
+   privacy
