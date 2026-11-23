@@ -1,10 +1,14 @@
 Instalação
 ==========
 
-.. note::
+1. Instale e configure o ``tool_opensearch`` 0.1.2 ou posterior, e confira o teste de conexão dele.
+2. Baixe a release, ou clone o repositório, em ``public/admin/tool/log/store/opensearch``:
 
-   Ainda não há versão publicada. Esta página descreve o comportamento previsto.
+   .. code-block:: bash
 
-Clone o repositório em ``public/admin/tool/log/store/opensearch`` e rode ``php admin/cli/upgrade.php``.
+      git clone https://github.com/moodle-observability/moodle-logstore_opensearch.git public/admin/tool/log/store/opensearch
 
-Instale e configure antes o ``tool_opensearch`` e depois habilite o log store em *Administração do site > Plugins > Logs > Gerenciar armazenamentos de log*.
+3. Rode ``php admin/cli/upgrade.php``.
+4. Habilite em *Administração do site > Plugins > Registros > Gerenciar log stores*. Mantenha o log padrão habilitado: os relatórios do Moodle leem dele.
+
+O plugin não tem tabelas: os documentos esperam na fila do ``tool_opensearch``.
