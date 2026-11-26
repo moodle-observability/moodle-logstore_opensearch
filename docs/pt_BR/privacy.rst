@@ -15,8 +15,10 @@ Pedidos dos titulares
 
 O plugin implementa a API de privacidade do Moodle:
 
-* **Exportação**: os documentos do usuário (como autor, usuário relacionado ou usuário real) nos contextos pedidos, no mesmo formato do log padrão.
-* **Exclusão**: delete by query no OpenSearch, por contexto, por usuário ou por lista de usuários. Com pseudônimos, são buscados o id e o pseudônimo (segredo atual).
+* **Exportação**: os documentos do usuário (como autor, usuário relacionado ou usuário real) nos contextos pedidos, no mesmo formato do log padrão, e os statements xAPI em que o usuário é o ator (subpasta ``xAPI``).
+* **Exclusão**: delete by query no OpenSearch, nos dois streams, por contexto, por usuário ou por lista de usuários. Com pseudônimos, são buscados o id e o pseudônimo (segredo atual).
 * Os pedidos chegam ao cluster sempre que o ``tool_opensearch`` tem hosts, mesmo com o envio desligado. Se o cluster não responder, o pedido falha e o Moodle tenta de novo depois: nunca é concluído sem tocar nos dados.
 
-A retenção do stream ``logstore`` (180 dias por padrão, no ``tool_opensearch``) apaga os documentos antigos automaticamente.
+A retenção dos streams ``logstore`` (180 dias por padrão) e ``xapi`` (365 dias), no ``tool_opensearch``, apaga os documentos antigos automaticamente.
+
+Nos statements xAPI o ator é o id do usuário (ou o pseudônimo): nome, e-mail e endereço IP não são gravados.

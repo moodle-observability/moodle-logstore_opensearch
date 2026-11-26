@@ -1,7 +1,7 @@
 Configuration
 =============
 
-*Site administration > Plugins > Logging > OpenSearch log.* The cluster, the queue and the retention of the ``logstore`` stream (180 days by default) are set in ``tool_opensearch``.
+*Site administration > Plugins > Logging > OpenSearch log.* The cluster, the queue and the retention of the ``logstore`` (180 days by default) and ``xapi`` (365 days) streams are set in ``tool_opensearch``.
 
 .. list-table::
    :header-rows: 1
@@ -13,6 +13,9 @@ Configuration
    * - ``mode_standard``
      - on
      - Write the events to the ``logstore`` stream.
+   * - ``mode_xapi``
+     - off
+     - Also write xAPI statements to the ``xapi`` stream (:doc:`modes`).
    * - ``logguests``
      - on
      - Write events of guests and of users not logged in (always written in CLI scripts).

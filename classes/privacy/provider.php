@@ -24,6 +24,7 @@ use core_privacy\local\request\userlist;
 use core_privacy\local\request\writer;
 use logstore_opensearch\local\options;
 use logstore_opensearch\local\transformer\standard;
+use logstore_opensearch\local\transformer\xapi;
 use tool_opensearch\local\client;
 use tool_opensearch\local\config;
 
@@ -80,6 +81,12 @@ class provider implements
             'aggs' => ['contexts' => ['terms' => ['field' => 'contextid', 'size' => self::SIZE]]],
         ]);
         $ids = array_column($response['aggregations']['contexts']['buckets'] ?? [], 'key');
+        $response = self::search([
+            'size' => 0,
+            'query' => self::xapi_user_query(self::user_ids((int) $userid, options::load())),
+            'aggs' => ['contexts' => ['terms' => ['field' => 'moodle_event.contextid', 'size' => self::SIZE]]],
+        ], xapi::STREAM);
+        $ids = array_merge($ids, array_column($response['aggregations']['contexts']['buckets'] ?? [], 'key'));
         if (!$ids) {
             return;
         }
@@ -111,6 +118,12 @@ class provider implements
         foreach ($aggs as $field => $unused) {
             $ids = array_merge($ids, array_column($response['aggregations'][$field]['buckets'] ?? [], 'key'));
         }
+        $response = self::search([
+            'size' => 0,
+            'query' => ['term' => ['moodle_event.contextid' => (int) $userlist->get_context()->id]],
+            'aggs' => ['actors' => ['terms' => ['field' => 'actor.account.name', 'size' => self::SIZE]]],
+        ], xapi::STREAM);
+        $ids = array_merge($ids, array_column($response['aggregations']['actors']['buckets'] ?? [], 'key'));
         $ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
         if ($ids) {
             global $DB;
@@ -155,6 +168,22 @@ class provider implements
                     (object) ['logs' => $logs]
                 );
             }
+            $response = self::search([
+                'size' => self::SIZE,
+                'sort' => [['timestamp' => 'asc']],
+                'query' => ['bool' => ['filter' => [
+                    ['term' => ['moodle_event.contextid' => (int) $context->id]],
+                    self::xapi_user_query($ids),
+                ]]],
+            ], xapi::STREAM);
+            $statements = array_map(fn(array $hit): array => array_diff_key($hit['_source'], ['moodle_event' => 1,
+                'moodle' => 1, '@timestamp' => 1]), $response['hits']['hits'] ?? []);
+            if ($statements) {
+                writer::with_context($context)->export_data(
+                    [get_string('privacy:path:logs', 'tool_log'), get_string('pluginname', 'logstore_opensearch'), 'xAPI'],
+                    (object) ['statements' => $statements]
+                );
+            }
         }
     }
 
@@ -167,6 +196,7 @@ class provider implements
     public static function delete_data_for_all_users_in_context(\context $context) {
         if (self::connected()) {
             self::delete_by_query(['term' => ['contextid' => (int) $context->id]]);
+            self::delete_by_query(['term' => ['moodle_event.contextid' => (int) $context->id]], xapi::STREAM);
         }
     }
 
@@ -186,6 +216,10 @@ class provider implements
                 ['term' => ['contextid' => (int) $contextid]],
                 self::user_query($ids),
             ]]]);
+            self::delete_by_query(['bool' => ['filter' => [
+                ['term' => ['moodle_event.contextid' => (int) $contextid]],
+                self::xapi_user_query($ids),
+            ]]], xapi::STREAM);
         }
     }
 
@@ -208,6 +242,10 @@ class provider implements
             ['term' => ['contextid' => (int) $userlist->get_context()->id]],
             self::user_query($ids),
         ]]]);
+        self::delete_by_query(['bool' => ['filter' => [
+            ['term' => ['moodle_event.contextid' => (int) $userlist->get_context()->id]],
+            self::xapi_user_query($ids),
+        ]]], xapi::STREAM);
     }
 
     /**
@@ -220,17 +258,18 @@ class provider implements
     }
 
     /**
-     * Searches the logstore data stream.
+     * Searches a data stream of this log store.
      *
      * @param array $body Body of _search.
+     * @param string $stream Stream (logstore or xapi).
      * @return array
      * @throws \tool_opensearch\local\client_exception When the cluster cannot answer.
      */
-    private static function search(array $body): array {
+    private static function search(array $body, string $stream = standard::STREAM): array {
         $config = config::load();
         [$status, $response] = (new client($config))->request(
             'POST',
-            '/' . $config->data_stream(standard::STREAM) . '/_search?ignore_unavailable=true',
+            '/' . $config->data_stream($stream) . '/_search?ignore_unavailable=true',
             $body
         );
         if ($status === 404) {
@@ -244,17 +283,18 @@ class provider implements
     }
 
     /**
-     * Deletes documents of the logstore data stream.
+     * Deletes documents of a data stream of this log store.
      *
      * @param array $query Query.
+     * @param string $stream Stream (logstore or xapi).
      * @return void
      * @throws \tool_opensearch\local\client_exception When the cluster cannot answer.
      */
-    private static function delete_by_query(array $query): void {
+    private static function delete_by_query(array $query, string $stream = standard::STREAM): void {
         $config = config::load();
         [$status, $response] = (new client($config))->request(
             'POST',
-            '/' . $config->data_stream(standard::STREAM) . '/_delete_by_query?conflicts=proceed&refresh=true',
+            '/' . $config->data_stream($stream) . '/_delete_by_query?conflicts=proceed&refresh=true',
             ['query' => $query]
         );
         if ($status !== 404 && ($status < 200 || $status > 299)) {
@@ -289,5 +329,15 @@ class provider implements
             $should[] = ['terms' => [$field => array_values($ids)]];
         }
         return ['bool' => ['should' => $should, 'minimum_should_match' => 1]];
+    }
+
+    /**
+     * Statements whose actor is any of the ids (account names are user ids or pseudonyms, as text).
+     *
+     * @param int[] $ids User ids (or pseudonyms).
+     * @return array
+     */
+    private static function xapi_user_query(array $ids): array {
+        return ['terms' => ['actor.account.name' => array_values(array_map('strval', $ids))]];
     }
 }

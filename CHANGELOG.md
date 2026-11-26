@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.0 - 2026-11-26
+
+`xapi` mode.
+
+- New setting `mode_xapi` (off by default): a set of events (course and module views, completions, grades, enrolments,
+  quiz attempts, submissions, forum discussions and posts, choice answers, badges, login and logout) also becomes an
+  xAPI 1.0.3 statement in the `xapi` stream (data stream `<prefix>-xapi`, 365 days of retention). Both modes can be on.
+- Actor as an account (site URL and user id or pseudonym); statement id as a UUID v5 of the event, so a resend does
+  not duplicate it; ADL verbs and activity types; `object.definition.name_en` and `moodle_event` for aggregations.
+- Privacy: export (subfolder `xAPI`) and deletion of the statements in both streams.
+- Dashboard "Moodle - learning (xAPI)" in `examples/`, for OpenSearch Dashboards and Grafana.
+
 ## 0.1.0 - 2026-11-24
 
 First release (alpha), `standard` mode.

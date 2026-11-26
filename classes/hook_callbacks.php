@@ -18,6 +18,7 @@ namespace logstore_opensearch;
 
 use logstore_opensearch\local\options;
 use logstore_opensearch\local\transformer\standard;
+use logstore_opensearch\local\transformer\xapi;
 
 /**
  * Hook callbacks.
@@ -28,7 +29,7 @@ use logstore_opensearch\local\transformer\standard;
  */
 final class hook_callbacks {
     /**
-     * Declares the "logstore" stream.
+     * Declares the "logstore" and "xapi" streams.
      *
      * @param \tool_opensearch\hook\register_streams $hook Hook.
      * @return void
@@ -40,6 +41,13 @@ final class hook_callbacks {
             standard::properties(),
             options::RETENTION_DAYS,
             get_string('stream_logstore', 'logstore_opensearch')
+        );
+        $hook->add_stream(
+            'logstore_opensearch',
+            xapi::STREAM,
+            xapi::properties(),
+            xapi::RETENTION_DAYS,
+            get_string('stream_xapi', 'logstore_opensearch')
         );
     }
 }
