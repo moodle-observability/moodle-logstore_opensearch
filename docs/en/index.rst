@@ -39,3 +39,5 @@ Links
    configuration
    modes
    privacy
+   capacity
+   dashboards
