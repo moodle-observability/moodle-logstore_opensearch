@@ -40,6 +40,13 @@ if ($hassiteconfig) {
         1
     ));
 
+    $settings->add(new admin_setting_configcheckbox(
+        'logstore_opensearch/mode_xapi',
+        get_string('mode_xapi', 'logstore_opensearch'),
+        get_string('mode_xapi_desc', 'logstore_opensearch'),
+        0
+    ));
+
     $settings->add(new admin_setting_heading(
         'logstore_opensearch/filters',
         get_string('filters', 'logstore_opensearch'),

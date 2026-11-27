@@ -18,6 +18,7 @@ namespace logstore_opensearch\log;
 
 use logstore_opensearch\local\options;
 use logstore_opensearch\local\transformer\standard;
+use logstore_opensearch\local\transformer\xapi;
 
 /**
  * Log store that sends the Moodle events to OpenSearch through tool_opensearch.
@@ -50,7 +51,7 @@ class store implements \tool_log\log\writer {
 
     #[\Override]
     protected function is_event_ignored(\core\event\base $event) {
-        if (!$this->options->standard || !\tool_opensearch\api::is_enabled()) {
+        if ((!$this->options->standard && !$this->options->xapi) || !\tool_opensearch\api::is_enabled()) {
             return true;
         }
         if ((!CLI_SCRIPT || PHPUNIT_TEST) && !$this->options->logguests && (!isloggedin() || isguestuser())) {
@@ -69,7 +70,15 @@ class store implements \tool_log\log\writer {
     #[\Override]
     protected function insert_event_entries($evententries) {
         foreach ($evententries as $entry) {
-            \tool_opensearch\api::index(standard::STREAM, standard::document($entry, $this->options));
+            if ($this->options->standard) {
+                \tool_opensearch\api::index(standard::STREAM, standard::document($entry, $this->options));
+            }
+            if ($this->options->xapi) {
+                $statement = xapi::document($entry, $this->options);
+                if ($statement !== null) {
+                    \tool_opensearch\api::index(xapi::STREAM, $statement);
+                }
+            }
         }
     }
 

@@ -1,7 +1,7 @@
 Configuração
 ============
 
-*Administração do site > Plugins > Registros > OpenSearch log.* O cluster, a fila e a retenção do stream ``logstore`` (180 dias por padrão) ficam no ``tool_opensearch``.
+*Administração do site > Plugins > Registros > OpenSearch log.* O cluster, a fila e a retenção dos streams ``logstore`` (180 dias por padrão) e ``xapi`` (365 dias) ficam no ``tool_opensearch``.
 
 .. list-table::
    :header-rows: 1
@@ -13,6 +13,9 @@ Configuração
    * - ``mode_standard``
      - ligado
      - Grava os eventos no stream ``logstore``.
+   * - ``mode_xapi``
+     - desligado
+     - Também grava statements xAPI no stream ``xapi`` (:doc:`modes`).
    * - ``logguests``
      - ligado
      - Grava eventos de convidados e de usuários não logados (em scripts CLI, sempre).

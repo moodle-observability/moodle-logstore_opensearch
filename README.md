@@ -7,7 +7,7 @@
 
 Moodle log store that writes events to OpenSearch (`logstore_opensearch`). Log store (`tool_log` subplugin) that writes Moodle events to OpenSearch through `tool_opensearch`, in two independent modes, each in its own data stream.
 
-**Status:** 0.1.0 (alpha), `standard` mode. Download it from the [releases](https://github.com/moodle-observability/moodle-logstore_opensearch/releases).
+**Status:** 0.2.0 (alpha), `standard` and `xapi` modes. Download it from the [releases](https://github.com/moodle-observability/moodle-logstore_opensearch/releases).
 
 Documentation (English and Brazilian Portuguese): https://moodle-observability.github.io/moodle-logstore_opensearch/
 

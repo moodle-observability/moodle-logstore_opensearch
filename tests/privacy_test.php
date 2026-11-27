@@ -100,7 +100,10 @@ final class privacy_test extends \core_privacy\tests\provider_testcase {
     public function test_contexts_for_user(): void {
         $user = $this->getDataGenerator()->create_user();
         $course = \context_course::instance($this->getDataGenerator()->create_course()->id);
-        $this->answers([['aggregations' => ['contexts' => ['buckets' => [['key' => $course->id], ['key' => 999999]]]]]]);
+        $this->answers([
+            ['aggregations' => ['contexts' => ['buckets' => [['key' => $course->id], ['key' => 999999]]]]],
+            ['aggregations' => ['contexts' => ['buckets' => [['key' => $course->id]]]]],
+        ]);
         $contextlist = new contextlist();
         provider::add_contexts_for_userid($contextlist, $user->id);
         $this->assertSame([(int) $course->id], array_map('intval', $contextlist->get_contextids()));
@@ -108,6 +111,8 @@ final class privacy_test extends \core_privacy\tests\provider_testcase {
         $should = $this->body(0)['query']['bool']['should'];
         $this->assertSame(['userid' => [(int) $user->id]], $should[0]['terms']);
         $this->assertSame(['realuserid' => [(int) $user->id]], $should[2]['terms']);
+        $this->assertSame('/test-xapi/_search', $this->history[1]->getUri()->getPath());
+        $this->assertSame(['actor.account.name' => [(string) $user->id]], $this->body(1)['query']['terms']);
     }
 
     /**
@@ -120,7 +125,7 @@ final class privacy_test extends \core_privacy\tests\provider_testcase {
             'userid' => ['buckets' => [['key' => $user->id], ['key' => 123456789012]]],
             'relateduserid' => ['buckets' => []],
             'realuserid' => ['buckets' => []],
-        ]]]);
+        ]], ['aggregations' => ['actors' => ['buckets' => [['key' => (string) $user->id], ['key' => 'anonymous']]]]]]);
         $userlist = new userlist($context, 'logstore_opensearch');
         provider::add_userids_for_context($userlist);
         $this->assertSame([(int) $user->id], array_map('intval', $userlist->get_userids()));
@@ -138,13 +143,17 @@ final class privacy_test extends \core_privacy\tests\provider_testcase {
             'contextid' => $context->id, 'contextlevel' => CONTEXT_COURSE, 'contextinstanceid' => $context->instanceid,
             'userid' => $user->id, 'courseid' => $context->instanceid, 'relateduserid' => null, 'anonymous' => 0,
             'other' => null, 'timecreated' => 1767225600, 'origin' => 'web', 'ip' => '10.0.0.1', 'realuserid' => null,
-        ]]]]]]);
+        ]]]]], ['hits' => ['hits' => [['_source' => ['id' => 'x', 'verb' => ['id' => 'viewed'],
+            'moodle_event' => ['contextid' => $context->id]]]]]]]);
         provider::export_user_data(new approved_contextlist($user, 'logstore_opensearch', [$context->id]));
         $data = writer::with_context($context)->get_data([get_string('privacy:path:logs', 'tool_log'),
             get_string('pluginname', 'logstore_opensearch')]);
         $this->assertCount(1, $data->logs);
         $this->assertSame('10.0.0.1', $data->logs[0]['ip']);
         $this->assertSame((int) $context->id, $this->body(0)['query']['bool']['filter'][0]['term']['contextid']);
+        $xapi = writer::with_context($context)->get_data([get_string('privacy:path:logs', 'tool_log'),
+            get_string('pluginname', 'logstore_opensearch'), 'xAPI']);
+        $this->assertSame([['id' => 'x', 'verb' => ['id' => 'viewed']]], $xapi->statements);
     }
 
     /**
@@ -154,7 +163,7 @@ final class privacy_test extends \core_privacy\tests\provider_testcase {
         set_config('pseudonymize', 1, 'logstore_opensearch');
         $user = $this->getDataGenerator()->create_user();
         $context = \context_course::instance($this->getDataGenerator()->create_course()->id);
-        $this->answers([['deleted' => 2], ['deleted' => 1], ['deleted' => 1]]);
+        $this->answers(array_fill(0, 6, ['deleted' => 1]));
 
         provider::delete_data_for_all_users_in_context($context);
         provider::delete_data_for_user(new approved_contextlist($user, 'logstore_opensearch', [$context->id]));
@@ -162,9 +171,11 @@ final class privacy_test extends \core_privacy\tests\provider_testcase {
 
         $this->assertSame('/test-logstore/_delete_by_query', $this->history[0]->getUri()->getPath());
         $this->assertSame(['term' => ['contextid' => (int) $context->id]], $this->body(0)['query']);
-        $ids = $this->body(1)['query']['bool']['filter'][1]['bool']['should'][0]['terms']['userid'];
+        $this->assertSame('/test-xapi/_delete_by_query', $this->history[1]->getUri()->getPath());
+        $this->assertSame(['term' => ['moodle_event.contextid' => (int) $context->id]], $this->body(1)['query']);
+        $ids = $this->body(2)['query']['bool']['filter'][1]['bool']['should'][0]['terms']['userid'];
         $this->assertSame([(int) $user->id, local\options::load()->pseudonym((int) $user->id)], $ids);
-        $this->assertCount(3, $this->history);
+        $this->assertCount(6, $this->history);
     }
 
     /**
@@ -172,9 +183,9 @@ final class privacy_test extends \core_privacy\tests\provider_testcase {
      */
     public function test_disabled_sending_still_reaches_cluster(): void {
         set_config('enabled', 0, 'tool_opensearch');
-        $this->answers([['deleted' => 1]]);
+        $this->answers([['deleted' => 1], ['deleted' => 0]]);
         provider::delete_data_for_all_users_in_context(\context_system::instance());
-        $this->assertCount(1, $this->history);
+        $this->assertCount(2, $this->history);
     }
 
     /**
@@ -204,7 +215,8 @@ final class privacy_test extends \core_privacy\tests\provider_testcase {
      * Searching before any document was sent (no data stream yet) finds nothing.
      */
     public function test_no_data_stream(): void {
-        $mock = new MockHandler([new Response(404, [], '{"error":{"type":"index_not_found_exception"}}')]);
+        $notfound = '{"error":{"type":"index_not_found_exception"}}';
+        $mock = new MockHandler([new Response(404, [], $notfound), new Response(404, [], $notfound)]);
         client::phpunit_set_handler($mock);
         $contextlist = new contextlist();
         provider::add_contexts_for_userid($contextlist, 2);

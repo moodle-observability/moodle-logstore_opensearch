@@ -33,6 +33,9 @@ final class options {
     /** @var bool Whether the standard mode (stream "logstore") is on. */
     public bool $standard = true;
 
+    /** @var bool Whether the xAPI mode (stream "xapi") is on. */
+    public bool $xapi = false;
+
     /** @var bool Whether events of guests and of users not logged in are written. */
     public bool $logguests = true;
 
@@ -72,6 +75,7 @@ final class options {
         $get = fn(string $name, $default) => isset($settings->$name) && $settings->$name !== '' ? $settings->$name : $default;
         $options = new self();
         $options->standard = (bool) $get('mode_standard', 1);
+        $options->xapi = (bool) $get('mode_xapi', 0);
         $options->logguests = (bool) $get('logguests', 1);
         $options->edulevels = array_map('intval', self::split((string) $get('edulevels', '0,1,2'), ','));
         $options->crud = self::split((string) $get('crud', 'c,r,u,d'), ',');
